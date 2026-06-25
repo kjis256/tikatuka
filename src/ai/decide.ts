@@ -21,31 +21,46 @@ import { evaluateMove, evaluateBoard, ROW_WIN_WEIGHT } from './evaluate';
  * ★별 "최선수를 따를 확률" ε. 나머지는 무작위 합법수(근시안·실수).
  * 스펙 §8: 난이도 = 의사결정 품질. ε 가 클수록 실수가 적다(운 동일).
  *
- * 강제 알까기 규칙 하에서는 줄별 평가가 평탄해져(매칭 줄은 kkagi 강제 → 선택지 압축)
- * ε 단독으로는 ★ 격차가 잘 안 벌어진다. 그래서 ε 는 "완만한 보조 레버"로 쓰고,
- * 주 레버는 아래의 재굴림 사용확률(REROLL_PROB)로 둔다 (자가대국 측정: 재굴림 on/off
- * 가 ε 격차보다 훨씬 큰 승률차를 낸다). ★1 은 거의 무작위, ★5 는 항상 최선.
+ * 단조성 설계(연속 런 규칙 재튜닝, 2026-06-25):
+ *   ★3/4/5 는 **동일한 강한 평가**(potential 항 켜짐, 아래 POTENTIAL 참고)를 공유하고,
+ *   차이는 오직 "실수율(ε)+재굴림 활용"으로만 낸다. 즉 높은 ★ = "낮은 ★ + 노이즈 적음".
+ *   이 구조가 단조성을 구조적으로 보장한다(강한 두 AI가 동일 eval 을 쓰되 ε 가 큰 쪽이
+ *   더 자주 무작위 실수). 연속 런 규칙으로 보드 가치 분포가 바뀌어 상위권 격차가 좁아진
+ *   것을 ε 간격을 넓혀(★5=1.0 항상최선 → ★1 거의 무작위) 복원한다.
  */
 const EPSILON: Record<Difficulty, number> = {
   1: 0.05,
-  2: 0.4,
-  3: 0.8,
-  4: 0.95,
+  2: 0.28,
+  3: 0.5,
+  4: 0.72,
   5: 1.0,
 };
 
 /**
  * ★별 "이득일 때 타짜의 손놀림(재굴림)을 실제로 쓸 확률".
- * 강제 알까기 환경에서 재굴림은 가장 강력하고 깨끗한 난이도 레버다(자가대국 검증).
- * 스펙 §7.1(★3+ 사용)을 지키되, ★3 은 가끔만(0.35), ★5 는 항상(1.0) 써서
- * 재굴림 활용도 자체가 ★ 에 비례해 승률을 단조 증가시키도록 한다.
- * (★1·★2 는 0 — 재굴림 미사용.)
+ * 재굴림은 ε 와 함께 상위권(★3~5) 실력차의 보조 레버다(자가대국 검증).
+ * 스펙 §7.1(★3+ 사용)을 지키되, ★3 은 가끔만(0.3), ★5 는 항상(1.0) 써서
+ * 재굴림 활용도 자체가 ★ 에 비례하도록 한다. (★1·★2 는 0 — 재굴림 미사용.)
  */
 const REROLL_PROB: Record<Difficulty, number> = {
   1: 0,
   2: 0,
-  3: 0.35,
-  4: 0.7,
+  3: 0.3,
+  4: 0.65,
+  5: 1.0,
+};
+
+/**
+ * ★별 평가 "잠재력(potential) 가중치". 연속 런 규칙에서 인접 더블/트리플 빌드와
+ * 상대 콤보 견제를 평가에 반영하는 강도(evaluate.evaluateMove 의 potentialWeight).
+ * ★3/4/5 는 동일하게 1.0(강한 eval 공유 — 단조성은 ε 로 낸다). ★1/2 는 0(순수 greedy):
+ * 어차피 ε 가 낮아 최선수를 드물게 두므로 잠재력 항을 줄지 않아도 저난이도다움이 유지된다.
+ */
+const POTENTIAL: Record<Difficulty, number> = {
+  1: 0,
+  2: 0,
+  3: 1.0,
+  4: 1.0,
   5: 1.0,
 };
 
@@ -59,12 +74,13 @@ const BET_MIN_STAR = 4;
 const other = (p: Player): Player => (p === 'me' ? 'opponent' : 'me');
 
 // ===== 합법수 선택 공통 =====
-/** 합법수들을 평가해 (최선수, 최선값) 반환. 동점은 안정적으로 첫 번째. */
-function bestMove(state: GameState, moves: Move[]): { move: Move; value: number } {
+/** 합법수들을 평가해 (최선수, 최선값) 반환. 동점은 안정적으로 첫 번째.
+ *  potW = ★별 잠재력 가중치(인접 콤보 빌드/견제 반영). */
+function bestMove(state: GameState, moves: Move[], potW: number): { move: Move; value: number } {
   let best = moves[0];
-  let bestVal = evaluateMove(state, best);
+  let bestVal = evaluateMove(state, best, potW);
   for (let i = 1; i < moves.length; i++) {
-    const v = evaluateMove(state, moves[i]);
+    const v = evaluateMove(state, moves[i], potW);
     if (v > bestVal) {
       best = moves[i];
       bestVal = v;
@@ -75,12 +91,12 @@ function bestMove(state: GameState, moves: Move[]): { move: Move; value: number 
 
 /**
  * ε-탐욕으로 합법수 1개 선택. 결정적(rng 주입).
- * rng() < ε → 최선수, 아니면 무작위 합법수(차선 포함).
+ * rng() < ε → 최선수(★별 잠재력 가중 평가), 아니면 무작위 합법수(차선 포함).
  */
 function pickMove(state: GameState, moves: Move[], difficulty: Difficulty, rng: Rng): Move {
   if (moves.length === 1) return moves[0];
   if (rng() < EPSILON[difficulty]) {
-    return bestMove(state, moves).move;
+    return bestMove(state, moves, POTENTIAL[difficulty]).move;
   }
   const idx = Math.floor(rng() * moves.length);
   return moves[Math.min(idx, moves.length - 1)];
@@ -100,7 +116,7 @@ function shouldReroll(state: GameState, difficulty: Difficulty): boolean {
   if (moves.length === 0) return false;
 
   const base = evaluateBoard(state);
-  const best = bestMove(state, moves).value;
+  const best = bestMove(state, moves, POTENTIAL[difficulty]).value;
   const gain = best - base;
 
   // 최선수조차 보드 가치를 (줄 1개분의 절반 미만으로) 거의 못 올리면 나쁜 굴림.
@@ -110,23 +126,27 @@ function shouldReroll(state: GameState, difficulty: Difficulty): boolean {
 }
 
 // ===== 굴림 선택 (die vs alt) =====
-/** pending.die / pending.alt 중 어느 쪽으로 둘 때가 더 좋은가. */
-function chooseBetterRoll(state: GameState): 'die' | 'alt' {
+/** pending.die / pending.alt 중 어느 쪽으로 둘 때가 더 좋은가 (★별 잠재력 가중). */
+function chooseBetterRoll(state: GameState, potW: number): 'die' | 'alt' {
   const pending = state.pending!;
-  const dieVal = evalRollValue(state, pending.die);
-  const altVal = evalRollValue(state, pending.alt!);
+  const dieVal = evalRollValue(state, pending.die, potW);
+  const altVal = evalRollValue(state, pending.alt!, potW);
   return altVal > dieVal ? 'alt' : 'die';
 }
 
 /** 특정 die 로 확정했다고 가정했을 때의 최선 합법수 가치. */
-function evalRollValue(state: GameState, die: GameState['rows'][number]['myDice'][number]): number {
+function evalRollValue(
+  state: GameState,
+  die: GameState['rows'][number]['myDice'][number],
+  potW: number,
+): number {
   const probe: GameState = {
     ...state,
     pending: { die, alt: null },
   };
   const moves = getLegalMoves(probe);
   if (moves.length === 0) return evaluateBoard(probe);
-  return bestMove(probe, moves).value;
+  return bestMove(probe, moves, potW).value;
 }
 
 // ===== 홀드 판단 =====
@@ -276,7 +296,11 @@ export function decideAction(state: GameState, rng: Rng): GameAction {
     if (state.pending && state.pending.alt !== null) {
       // ε-탐욕: 낮은 ★는 가끔 잘못 선택.
       const which: 'die' | 'alt' =
-        rng() < EPSILON[difficulty] ? chooseBetterRoll(state) : rng() < 0.5 ? 'die' : 'alt';
+        rng() < EPSILON[difficulty]
+          ? chooseBetterRoll(state, POTENTIAL[difficulty])
+          : rng() < 0.5
+            ? 'die'
+            : 'alt';
       return { type: 'CHOOSE_ROLL', which };
     }
 

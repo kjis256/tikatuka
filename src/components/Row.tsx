@@ -13,6 +13,7 @@ import type { GameAction, Player, Row as RowModel, RowScore } from '../logic';
 import { DiceSlot } from './DiceSlot';
 import { ScoreCenter } from './ScoreCenter';
 import type { BoardView } from '../hooks/useBoardView';
+import { computeDiceLinks } from '../hooks/useDiceLinks';
 
 export interface RowProps {
   row: RowModel;
@@ -30,7 +31,8 @@ export function Row({ row, score, view, dispatch, locked }: RowProps): JSX.Eleme
 
   const renderSide = (owner: Player): JSX.Element[] => {
     const dice = owner === 'me' ? row.myDice : row.oppDice;
-    const slots = Array.from({ length: SLOT_COUNT }, (_, i) => {
+    // 칸별 데이터(논리 인덱스 i 유지)를 먼저 만든다.
+    const cells = Array.from({ length: SLOT_COUNT }, (_, i) => {
       const die = dice[i] ?? null;
       const kkagiTarget =
         die !== null && view.isKkagiTarget(rowIndex, owner, die.value, die.isShield);
@@ -59,20 +61,28 @@ export function Row({ row, score, view, dispatch, locked }: RowProps): JSX.Eleme
         }
       }
 
-      return (
-        <DiceSlot
-          key={`${owner}-${i}`}
-          die={die}
-          placeable={canPlace && !locked}
-          kkagiTarget={kkagiTarget}
-          forcedKkagi={forcedKkagiSlot && !locked}
-          onClick={onClick}
-        />
-      );
+      return { i, die, kkagiTarget, canPlace, forcedKkagiSlot, onClick };
     });
+
     // 마주보기(mirror): 내 필드는 칸 0 이 중앙(점수) 옆에 오도록 역순 렌더.
     // 데이터/클릭 매핑은 진짜 인덱스 i 로 유지되므로 강조·배치는 올바른 칸에 표시된다.
-    return owner === 'me' ? slots.reverse() : slots;
+    const visualCells = owner === 'me' ? [...cells].reverse() : cells;
+
+    // 같은 눈 링크는 **시각 순서**로 산출 → 역순 렌더 후에도 걸쇠가 올바른 쌍 사이에 온다.
+    const links = computeDiceLinks(visualCells.map((c) => c.die));
+
+    return visualCells.map((c, vi) => (
+      <DiceSlot
+        key={`${owner}-${c.i}`}
+        die={c.die}
+        placeable={c.canPlace && !locked}
+        kkagiTarget={c.kkagiTarget}
+        forcedKkagi={c.forcedKkagiSlot && !locked}
+        combo={links[vi].combo}
+        claspToNext={links[vi].claspToNext}
+        onClick={c.onClick}
+      />
+    ));
   };
 
   return (

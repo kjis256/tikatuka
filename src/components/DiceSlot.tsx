@@ -21,6 +21,10 @@ export interface DiceSlotProps {
   kkagiTarget: boolean;
   /** 빈칸이지만 매칭 줄이라 두면 알까기가 강제 발동되는 칸. */
   forcedKkagi?: boolean;
+  /** 같은 필드 같은 줄에 같은 눈이 2개 이상 → 콤보 글로우(표시용). */
+  combo?: boolean;
+  /** 시각적으로 다음 칸과 눈이 같다 → 사이에 걸쇠(연결선) 표시(표시용). */
+  claspToNext?: boolean;
   /** 클릭 가능 여부 (빈칸 배치 또는 알까기 발동). */
   onClick?: () => void;
 }
@@ -30,6 +34,8 @@ export function DiceSlot({
   placeable,
   kkagiTarget,
   forcedKkagi = false,
+  combo = false,
+  claspToNext = false,
   onClick,
 }: DiceSlotProps): JSX.Element {
   const classes = ['slot'];
@@ -40,12 +46,13 @@ export function DiceSlot({
   } else {
     classes.push(die.isShield ? 'slot--shield' : 'slot--wood');
     if (kkagiTarget) classes.push('slot--kkagi');
+    if (combo) classes.push('slot--combo');
   }
   const clickable = onClick !== undefined;
   if (clickable) classes.push('slot--clickable');
 
   const ariaLabel = die
-    ? `주사위 ${die.value}${die.isShield ? ' 실드' : ''}`
+    ? `주사위 ${die.value}${die.isShield ? ' 실드' : ''}${combo ? ' 콤보' : ''}`
     : forcedKkagi
       ? '알까기 발동'
       : '빈 칸';
@@ -59,6 +66,8 @@ export function DiceSlot({
       aria-label={ariaLabel}
     >
       {die !== null && <Die die={die} />}
+      {/* 같은 눈 인접 쌍 사이 걸쇠(브래킷). 칸 우측 gap 위에 얹혀 다음 칸과 연결. */}
+      {die !== null && claspToNext && <span className="dice-clasp" aria-hidden="true" />}
       {die === null && placeable && <span className="slot-place-hint">＋</span>}
       {die === null && !placeable && forcedKkagi && <span className="slot-kkagi-hint">✕</span>}
     </button>

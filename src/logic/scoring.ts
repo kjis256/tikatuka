@@ -7,22 +7,37 @@ import type { Die, DiceValue, GameState, Move, Player, RowScore, RowIndex } from
 
 /**
  * 한 줄의 점수.
- * 눈별 카운트 → 트리플(3개)=눈×5, 더블(2개)=눈×3, 단일=눈×개수.
- * 혼합 줄은 카운트별로 합산한다. (예: 4,4,2 → 4×3 + 2 = 14)
- * 실드 주사위도 점수는 일반과 동일하게 합산된다.
+ * **연속(인접) 런 기반**: 줄을 배열 순서대로 스캔하여 같은 눈이 이어지는 구간(런)으로
+ * 끊고, 각 런을 길이로 채점한 뒤 합산한다.
+ *   - 런 길이 3 → 트리플 = 눈×5
+ *   - 런 길이 2 → 더블 = 눈×3
+ *   - 런 길이 1 → 단일 = 눈×1
+ * 같은 눈이라도 **떨어져 있으면(비인접)** 보너스가 없다.
+ *   - 예: 5,5,2 → 5×3 + 2 = 17 (인접 더블)
+ *   - 예: 5,2,5 → 5 + 2 + 5 = 12 (비인접 → 보너스 없음)
+ *   - 예: 4,4,2 → 4×3 + 2 = 14
+ * 실드 주사위도 점수는 일반과 동일하게(값만으로) 합산된다.
  */
 export function calcRowScore(dice: Die[]): number {
   if (dice.length === 0) return 0;
-  const counts = new Map<DiceValue, number>();
-  for (const d of dice) {
-    counts.set(d.value, (counts.get(d.value) ?? 0) + 1);
-  }
   let score = 0;
-  for (const [value, count] of counts) {
-    if (count >= 3) score += value * 5; // 트리플
-    else if (count === 2) score += value * 3; // 더블
-    else score += value * count; // 단일
+  let runValue = dice[0].value;
+  let runLen = 1;
+  const scoreRun = (value: DiceValue, len: number): number => {
+    if (len >= 3) return value * 5; // 트리플
+    if (len === 2) return value * 3; // 더블
+    return value; // 단일
+  };
+  for (let i = 1; i < dice.length; i++) {
+    if (dice[i].value === runValue) {
+      runLen++;
+    } else {
+      score += scoreRun(runValue, runLen);
+      runValue = dice[i].value;
+      runLen = 1;
+    }
   }
+  score += scoreRun(runValue, runLen);
   return score;
 }
 

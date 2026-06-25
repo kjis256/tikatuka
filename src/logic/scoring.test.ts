@@ -30,6 +30,30 @@ describe('calcRowScore — 스펙 §3 worked examples', () => {
   it('트리플 1 [1,1,1] → 5', () => {
     expect(calcRowScore([d(1), d(1), d(1)])).toBe(5);
   });
+  it('단일 [6] → 6', () => {
+    expect(calcRowScore([d(6)])).toBe(6);
+  });
+});
+
+describe('calcRowScore — 연속(인접) 런만 보너스', () => {
+  it('인접 더블 앞 [5,5,2] → 5×3 + 2 = 17', () => {
+    expect(calcRowScore([d(5), d(5), d(2)])).toBe(17);
+  });
+  it('인접 더블 뒤 [2,5,5] → 2 + 5×3 = 17', () => {
+    expect(calcRowScore([d(2), d(5), d(5)])).toBe(17);
+  });
+  it('비인접 같은 눈 [5,2,5] → 5+2+5 = 12 (보너스 없음)', () => {
+    expect(calcRowScore([d(5), d(2), d(5)])).toBe(12);
+  });
+  it('비인접 같은 눈 [3,1,3] → 3+1+3 = 7 (보너스 없음)', () => {
+    expect(calcRowScore([d(3), d(1), d(3)])).toBe(7);
+  });
+  it('실드 여부 무관, 값만 판정: [실드5,5,2] → 17', () => {
+    expect(calcRowScore([sd(5), d(5), d(2)])).toBe(17);
+  });
+  it('비인접인데 사이 실드라도 보너스 없음: [5,실드2,5] → 12', () => {
+    expect(calcRowScore([d(5), sd(2), d(5)])).toBe(12);
+  });
 });
 
 describe('getRowScores — 화살표 리더', () => {

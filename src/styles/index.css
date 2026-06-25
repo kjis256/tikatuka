@@ -482,6 +482,63 @@ button:disabled {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
+/* ===================== 같은 눈 링크 (더블/트리플 표시용) =====================
+   원본(target_myfield_zoom)처럼 같은 눈 그룹을 따뜻한 골드/그린 둥근 프레임으로
+   감싸고, 인접한 같은 눈 사이를 걸쇠(브래킷)로 연결한다.
+   - 순수 장식: 게임 규칙/판정과 무관. 점수 화살표·실드·알까기 강조와 색이 겹치지 않게
+     실드(선명한 녹색 링)/알까기(주황 점선)와 구분되는 은은한 황록 글로우를 쓴다.
+   - 알까기 대상(.slot--kkagi)이면 그쪽 강조가 우선되도록 콤보 글로우는 약하게 둔다. */
+:root {
+  --link-gold: #e8c062;
+  --link-green: #7fc77a;
+}
+.slot--combo {
+  position: relative;
+}
+.slot--combo .die-face {
+  border-radius: 12px;
+  /* 원본처럼 둥근 녹색 프레임 + 따뜻한 골드 외곽 글로우.
+     실드(선명한 단색 녹색 링)와 구분되도록 녹색은 한 톤 차분하게, 바깥에 골드 글로우. */
+  box-shadow:
+    0 0 0 2px rgba(127, 199, 122, 0.9),
+    0 0 0 3px rgba(232, 192, 98, 0.55),
+    0 0 9px 1px rgba(232, 192, 98, 0.45),
+    0 2px 3px rgba(0, 0, 0, 0.4);
+}
+/* 실드 주사위가 콤보이기도 하면 실드 녹색 링을 유지(식별성 우선). */
+.slot--shield.slot--combo .die-face {
+  box-shadow:
+    0 0 0 2px rgba(95, 209, 106, 0.95),
+    0 0 10px 2px rgba(95, 209, 106, 0.7),
+    0 0 0 4px rgba(232, 192, 98, 0.4),
+    0 2px 3px rgba(0, 0, 0, 0.4);
+}
+/* 인접 같은 눈 사이 걸쇠(브래킷). 칸 우측 끝에서 다음 칸 쪽 gap 위에 얹는다.
+   width 는 --row-gap 보다 살짝 크게 잡아 두 칸 면 사이를 확실히 잇는다. */
+.dice-clasp {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: calc(var(--row-gap) + 8px);
+  height: 14px;
+  transform: translate(-4px, -50%);
+  pointer-events: none;
+  z-index: 2;
+  /* 걸쇠 본체: 가로 골드 바 + 양끝 둥근 마디(걸쇠 고리 느낌). */
+  background:
+    radial-gradient(circle at 2px 50%, var(--link-gold) 0 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 2px) 50%, var(--link-gold) 0 3px, transparent 3.5px),
+    linear-gradient(
+      180deg,
+      transparent 38%,
+      rgba(168, 116, 42, 0.9) 38%,
+      var(--link-gold) 50%,
+      rgba(168, 116, 42, 0.9) 62%,
+      transparent 62%
+    );
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
+
 /* ===================== Die (주사위 면) ===================== */
 /* 일반 주사위 면 = 아이보리 나무 에셋. 핍은 .die-pips 로 위에 오버레이. */
 .die-face {
