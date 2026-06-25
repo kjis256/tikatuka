@@ -1,0 +1,27 @@
+# 의존성 / 빌드
+node_modules/
+dist/
+*.tsbuildinfo
+
+# 하네스 & 작업 부산물 (저장소 제외, 로컬 보존)
+.claude/
+_workspace/
+design_handoff/
+asset-toss/
+
+# 원본/참조 입력 & 문서 (순수 앱만 푸시)
+CLAUDE.md
+tikatuka_spec.md
+ui.png
+img.png
+
+# 빌드/배포 산출물
+*.tar
+*.tar.gz
+*.sha256
+
+# OS / 에디터
+.DS_Store
+.vscode/
+.idea/
+*.log

@@ -1,0 +1,25 @@
+# 빌드에 불필요 — 컨텍스트 축소
+node_modules
+dist
+.git
+.gitignore
+
+# 하네스/작업물/원본 에셋 (앱이 import 안 함)
+.claude
+_workspace
+design_handoff
+asset-toss
+ui.png
+img.png
+
+# 문서/IDE
+*.md
+.vscode
+.idea
+
+# 컨테이너 자체
+Dockerfile
+.dockerignore
+compose.yaml
+*.tar
+*.tar.gz

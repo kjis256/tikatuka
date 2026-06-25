@@ -1,0 +1,14 @@
+services:
+  tikatuka:
+    build: .
+    image: tikatuka:latest
+    container_name: tikatuka
+    ports:
+      - "8080:80" # 호스트 8080 → 컨테이너 80(nginx)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
