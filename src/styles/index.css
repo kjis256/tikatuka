@@ -69,6 +69,7 @@ button:disabled {
   max-width: 1100px;
   margin: 0 auto;
   min-height: 100vh;
+  min-height: 100dvh; /* 모바일 브라우저 크롬 제외한 실제 보이는 높이 */
   display: flex;
   flex-direction: column;
   padding: 12px 16px 20px;
@@ -280,12 +281,12 @@ button:disabled {
 .mascot--opp {
   right: -82px;
 }
-@media (max-width: 980px) {
+/* ui.md: 마스코트는 음수 위치라 폭이 좁으면 뷰포트를 넘겨 가로 오버플로를 유발한다.
+   충분히 넓을 때(>1280)만 표시하고, 그 이하(데스크톱 좁음·태블릿·폰)에선 숨긴다. */
+@media (max-width: 1280px) {
   .mascot {
-    width: 92px;
+    display: none;
   }
-  .mascot--me { left: -56px; }
-  .mascot--opp { right: -58px; }
 }
 
 /* ===================== WaitingArea ===================== */
@@ -466,6 +467,18 @@ button:disabled {
   font-size: 24px;
   color: var(--gold);
   font-weight: 300;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+/* 강제 알까기: 매칭 줄의 내 빈칸 → 두면 알까기 발동(주황 강조). */
+.slot--kkagi-place {
+  border: 2px dashed var(--kkagi-orange);
+  background: rgba(255, 147, 38, 0.15);
+  box-shadow: 0 0 10px rgba(255, 147, 38, 0.5);
+}
+.slot-kkagi-hint {
+  font-size: 22px;
+  color: var(--kkagi-orange);
+  font-weight: 700;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
@@ -768,26 +781,66 @@ button:disabled {
   .app {
     padding: 10px 12px 16px;
   }
+  /* ui.md: 태블릿(iPad 가로 1024 포함) 터치 타깃 ≥44px. */
+  .roll-btn,
+  .act-btn,
+  .menu-btn,
+  .start-btn,
+  .diff-btn {
+    min-height: 44px;
+  }
+}
+
+/* ui.md: 모든 터치 입력 기기(폰·태블릿·iPad Pro 등)에서 탭 요소 ≥44px 보장. */
+@media (pointer: coarse) {
+  .roll-btn,
+  .act-btn,
+  .menu-btn,
+  .start-btn,
+  .diff-btn {
+    min-height: 44px;
+  }
 }
 
 /* ---- 폰 세로 (≤640): 대기영역을 보드 위/아래 가로 바로 재배치 ---- */
 @media (max-width: 640px) {
   :root {
-    --slot-size: 40px;
-    --die-size: 36px;
+    /* ui.md: 360~640 끊김 없이 — 폭에 비례해 슬롯/주사위를 유동 확대(가능한 큰 탭 영역). */
+    --slot-size: clamp(40px, 10vw, 46px);
+    --die-size: clamp(36px, 9vw, 42px);
     --die-size-small: 28px;
-    --row-gap: 5px;
-    --score-min: 72px;
+    --row-gap: 3px;
+    --score-min: 54px;
     --score-num: 16px;
   }
   .app {
-    padding: 8px 10px 14px;
+    /* ui.md: 전 방향 safe-area(노치/홈바). 하단은 버튼이 안 가리도록 추가 공백까지. */
+    padding-top: calc(8px + env(safe-area-inset-top));
+    padding-right: calc(10px + env(safe-area-inset-right));
+    padding-bottom: calc(32px + env(safe-area-inset-bottom));
+    padding-left: calc(10px + env(safe-area-inset-left));
   }
-
-  /* 보드를 가운데, 대기영역은 위/아래 가로 바로. */
+  /* ui.md: 보드 장식 패딩 축소 → 6칸+점수 한 줄이 더 큰 슬롯으로 들어맞게. */
+  .board {
+    padding: 7% 6% 7.5% 6%;
+  }
+  .board-row {
+    gap: 4px;
+    padding: 3px 4px;
+  }
+  /* ui.md: 터치 타깃 ≥44px — 탭 버튼류 최소 높이 보장. */
+  .roll-btn,
+  .act-btn,
+  .menu-btn,
+  .start-btn,
+  .diff-btn {
+    min-height: 44px;
+  }
+  /* 콘텐츠를 위로 모으고 아래에 공백: 보드 영역을 신축(flex:1)시키지 않음. */
   .game-area {
     grid-template-columns: 1fr;
     gap: 8px;
+    flex: 0 1 auto;
   }
   /* 모바일 세로: 상대를 위(top), 나를 아래(bottom)로 — 일반적 대전 배치. */
   .waiting--opp {
@@ -846,12 +899,9 @@ button:disabled {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* 모바일: 티카투카 로고 제거 → 중앙 공간 확보(나/상대/턴 잘림 방지). 새 게임 버튼은 유지. */
   .logo-sign {
-    width: 120px;
-    height: 64px;
-  }
-  .logo {
-    font-size: 15px;
+    display: none;
   }
 
   /* ActionBar: 줄바꿈 허용 + 버튼 축소 */
@@ -877,19 +927,22 @@ button:disabled {
 /* ---- 소형 폰 (≤400): 360px 폭까지 한 줄(6칸+점수) 보장 ---- */
 @media (max-width: 400px) {
   :root {
-    --slot-size: 34px;
-    --die-size: 30px;
+    --slot-size: clamp(38px, 10.5vw, 42px);
+    --die-size: clamp(34px, 9.3vw, 38px);
     --die-size-small: 24px;
     --row-gap: 3px;
-    --score-min: 58px;
+    --score-min: 46px;
     --score-num: 15px;
   }
   .app {
-    padding: 6px 6px 12px;
+    padding-top: calc(6px + env(safe-area-inset-top));
+    padding-right: calc(6px + env(safe-area-inset-right));
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+    padding-left: calc(6px + env(safe-area-inset-left));
   }
   .board {
-    /* 좁은 폭에선 프레임 장식 패딩을 줄여 내부 플레이면 확보(슬롯 정합 유지). */
-    padding: 10% 7% 10.5% 7%;
+    /* 360px 까지 6칸+점수 한 줄을 더 큰 슬롯으로 — 프레임 장식 패딩 추가 축소. */
+    padding: 6% 5.5% 6.5% 5.5%;
     gap: 4px;
   }
   .board-row {
@@ -927,7 +980,11 @@ button:disabled {
     --area-gap: 8px;
   }
   .app {
-    padding: 4px 10px 8px;
+    /* ui.md: 가로에선 노치가 좌/우 → 좌우 safe-area 적용. */
+    padding-top: 4px;
+    padding-right: calc(10px + env(safe-area-inset-right));
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
+    padding-left: calc(10px + env(safe-area-inset-left));
     min-height: auto;
   }
   /* 가로에선 폭은 넉넉, 높이가 부족 → 3열 그대로 두고 세로 여백 축소. */
@@ -946,7 +1003,16 @@ button:disabled {
   .action-bar {
     margin-top: 8px;
   }
+  /* ui.md: 터치 타깃 ≥44px (가로 폰 포함). */
+  .roll-btn,
+  .act-btn,
+  .menu-btn {
+    min-height: 44px;
+  }
   .mascot {
+    display: none;
+  }
+  .logo-sign {
     display: none;
   }
   .board {

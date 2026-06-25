@@ -92,6 +92,70 @@ describe('getLegalMoves / canKkagi', () => {
     expect(getLegalMoves(s).some((m) => m.kind === 'kkagi' && m.rowIndex === 0)).toBe(true);
   });
 
+  describe('강제 알까기 (forced kkagi)', () => {
+    it('알까기 가능한 줄은 place 차단, kkagi 만 제공', () => {
+      // 내 줄 [1,2] / 상대 줄 [3](비보호), 내가 3 굴림 → 0줄은 알까기 강제.
+      const s = makeState({
+        rows: [row(0, [d(1), d(2)], [d(3)]), row(1, [], []), row(2, [], [])],
+        currentTurn: 'me',
+        pendingDie: d(3),
+      });
+      const moves = getLegalMoves(s);
+      // 0줄: place 없음, kkagi 있음
+      expect(moves.some((m) => m.kind === 'place' && m.rowIndex === 0)).toBe(false);
+      expect(moves.some((m) => m.kind === 'kkagi' && m.rowIndex === 0)).toBe(true);
+    });
+
+    it('매칭되지 않는 다른 줄(빈칸)에는 place 제공 (알까기 회피 경로)', () => {
+      const s = makeState({
+        rows: [row(0, [d(1), d(2)], [d(3)]), row(1, [], []), row(2, [], [])],
+        currentTurn: 'me',
+        pendingDie: d(3),
+      });
+      const moves = getLegalMoves(s);
+      // 1·2줄은 매칭 없음 → place 제공 (kkagi 없음)
+      expect(moves.some((m) => m.kind === 'place' && m.rowIndex === 1)).toBe(true);
+      expect(moves.some((m) => m.kind === 'place' && m.rowIndex === 2)).toBe(true);
+      expect(moves.filter((m) => m.kind === 'kkagi')).toHaveLength(1); // 0줄만
+    });
+
+    it('내 줄이 가득(3개)이면 그 줄은 place 도 kkagi 도 없음', () => {
+      // me 0줄 가득 → 알까기 조건(빈칸) 불충족 + place 도 불가.
+      const s = makeState({
+        rows: [row(0, [d(5), d(5), d(5)], [d(3)]), row(1, [], []), row(2, [], [])],
+        currentTurn: 'me',
+        pendingDie: d(3),
+      });
+      const moves = getLegalMoves(s);
+      expect(moves.some((m) => m.rowIndex === 0)).toBe(false); // 0줄 합법수 없음
+      expect(moves.some((m) => m.kind === 'place' && m.rowIndex === 1)).toBe(true);
+    });
+
+    it('applyMove 가드: 알까기 강제 줄에 place 시도하면 무시 (상태 불변)', () => {
+      const s = makeState({
+        rows: [row(0, [d(1), d(2)], [d(3)]), row(1, [], []), row(2, [], [])],
+        currentTurn: 'me',
+        pendingDie: d(3),
+      });
+      const after = applyMove(s, { kind: 'place', rowIndex: 0 }, fixedRng(1));
+      expect(after).toBe(s); // 불법 place → 상태 불변
+    });
+
+    it('강제 알까기 실행: 상대 매칭 제거 + placingBonus + 실드 보너스', () => {
+      const s = makeState({
+        rows: [row(0, [d(1), d(2)], [d(3)]), row(1, [], []), row(2, [], [])],
+        currentTurn: 'me',
+        pendingDie: d(3),
+      });
+      const next = applyMove(s, { kind: 'kkagi', rowIndex: 0 }, fixedRng(6));
+      expect(next.rows[0].oppDice).toEqual([]); // 상대 3 제거
+      expect(next.rows[0].myDice.map((x) => x.value)).toEqual([1, 2]); // 내 줄 불변
+      expect(next.phase).toBe('placingBonus');
+      expect(next.pendingBonus).toEqual({ value: 6, isShield: true });
+      expect(next.pending).toBeNull();
+    });
+  });
+
   it('실드 주사위는 알까기 대상 아님', () => {
     const s = makeState({
       rows: [row(0, [], [sd(2)]), row(1, [], []), row(2, [], [])],
@@ -280,12 +344,13 @@ describe('베팅 윈도우 — 합산 10개부터 3턴', () => {
     });
     s = { ...s, bettingWindow: { open: true, turnsLeft: 3 } };
     expect(isBettingOpen(s)).toBe(true);
-    // place 3번 → 매번 advanceTurn 에서 turnsLeft 감소
+    // place 3번 → 매번 advanceTurn 에서 turnsLeft 감소.
+    // 강제 알까기 회피를 위해 매번 빈 줄에 배치(서로 다른 줄 → 매칭 없음).
     s = applyMove({ ...s, pending: { die: d(1), alt: null }, phase: 'placing' }, { kind: 'place', rowIndex: 0 }, fixedRng(1));
     expect(s.bettingWindow.turnsLeft).toBe(2);
-    s = applyMove({ ...s, pending: { die: d(1), alt: null }, phase: 'placing' }, { kind: 'place', rowIndex: 0 }, fixedRng(1));
+    s = applyMove({ ...s, pending: { die: d(2), alt: null }, phase: 'placing' }, { kind: 'place', rowIndex: 1 }, fixedRng(1));
     expect(s.bettingWindow.turnsLeft).toBe(1);
-    s = applyMove({ ...s, pending: { die: d(1), alt: null }, phase: 'placing' }, { kind: 'place', rowIndex: 0 }, fixedRng(1));
+    s = applyMove({ ...s, pending: { die: d(3), alt: null }, phase: 'placing' }, { kind: 'place', rowIndex: 2 }, fixedRng(1));
     expect(s.bettingWindow.turnsLeft).toBe(0);
     expect(s.bettingWindow.open).toBe(false);
     expect(isBettingOpen(s)).toBe(false);

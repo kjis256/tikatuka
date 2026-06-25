@@ -40,13 +40,21 @@ export function Row({ row, score, view, dispatch, locked }: RowProps): JSX.Eleme
         die === null &&
         ((view.myPlacing && owner === 'me' && view.placeRows.has(rowIndex)) || view.myBonus);
 
+      // 강제 알까기: 매칭되는 줄의 내 빈칸 → 두면 알까기가 발동(일반 배치 불가).
+      const forcedKkagiSlot =
+        die === null &&
+        !view.myBonus &&
+        view.myPlacing &&
+        owner === 'me' &&
+        view.kkagiRows.has(rowIndex);
+
       let onClick: (() => void) | undefined;
       if (!locked) {
         if (canPlace && view.myBonus) {
           onClick = () => dispatch({ type: 'PLACE_BONUS', field: owner, rowIndex });
         } else if (canPlace) {
           onClick = () => dispatch({ type: 'MOVE', move: { kind: 'place', rowIndex } });
-        } else if (kkagiTarget) {
+        } else if (forcedKkagiSlot || kkagiTarget) {
           onClick = () => dispatch({ type: 'MOVE', move: { kind: 'kkagi', rowIndex } });
         }
       }
@@ -57,6 +65,7 @@ export function Row({ row, score, view, dispatch, locked }: RowProps): JSX.Eleme
           die={die}
           placeable={canPlace && !locked}
           kkagiTarget={kkagiTarget}
+          forcedKkagi={forcedKkagiSlot && !locked}
           onClick={onClick}
         />
       );

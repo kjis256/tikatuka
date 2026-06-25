@@ -281,9 +281,12 @@ export function canKkagi(state: GameState, rowIndex: RowIndex): boolean {
 }
 
 /**
- * 현재 pending 주사위로 가능한 모든 합법수.
- * - place: 현재 플레이어의 빈칸이 있는 줄마다
- * - kkagi: 알까기 조건을 만족하는 줄마다
+ * 현재 pending 주사위로 가능한 모든 합법수 (강제 알까기).
+ * 각 줄에 대해 상호 배타적으로 정확히 하나(또는 0)를 제공한다:
+ * - 알까기 조건을 만족하면 그 줄은 kkagi 만 제공 (일반 배치 차단 → 알까기 강제).
+ * - 아니면 자기측 빈칸이 있는 줄은 place 제공.
+ * - 둘 다 아니면(자기측 가득) 그 줄은 합법수 없음.
+ * 매칭되지 않는 다른 줄은 정상 place 가능하므로, 플레이어는 그 줄을 골라 알까기를 회피할 수 있다.
  */
 export function getLegalMoves(state: GameState): Move[] {
   if (state.phase !== 'placing' || state.pending === null) return [];
@@ -291,11 +294,10 @@ export function getLegalMoves(state: GameState): Move[] {
   const me = state.currentTurn;
   const moves: Move[] = [];
   for (const i of ROW_INDICES) {
-    if (sideOf(state.rows[i], me).length < SLOTS_PER_SIDE) {
-      moves.push({ kind: 'place', rowIndex: i });
-    }
     if (canKkagiAt(state, value, me, i)) {
-      moves.push({ kind: 'kkagi', rowIndex: i });
+      moves.push({ kind: 'kkagi', rowIndex: i }); // 강제 알까기 (place 차단)
+    } else if (sideOf(state.rows[i], me).length < SLOTS_PER_SIDE) {
+      moves.push({ kind: 'place', rowIndex: i });
     }
   }
   return moves;
@@ -317,6 +319,8 @@ export function applyMove(state: GameState, move: Move, rng: Rng): GameState {
 
   if (move.kind === 'place') {
     if (sideOf(state.rows[move.rowIndex], me).length >= SLOTS_PER_SIDE) return state;
+    // 강제 알까기: 그 줄이 알까기 조건을 만족하면 일반 배치는 불법(무시). 알까기를 강제한다.
+    if (canKkagiAt(state, value, me, move.rowIndex)) return state;
     const s = clone(state);
     const key = sideKey(me);
     s.rows[move.rowIndex][key] = [...s.rows[move.rowIndex][key], { ...s.pending!.die }];

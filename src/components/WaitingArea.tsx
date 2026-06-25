@@ -90,7 +90,7 @@ export function WaitingArea({ player, state, dispatch, locked }: WaitingAreaProp
         }}
         aria-label="대기영역 클릭으로 주사위 굴리기"
       >
-        <div className="waiting-label">{player === 'me' ? '내 대기' : '상대 대기'}</div>
+        <div className="waiting-label">주사위 굴리기</div>
         <div className="waiting-slot">{content}</div>
       </div>
     );

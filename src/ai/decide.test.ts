@@ -233,24 +233,32 @@ describe('난이도 단조성 (높은 ★ 승률 ↑)', () => {
     return decisive === 0 ? 0.5 : strongWins / decisive;
   }
 
+  // 표본 수(n) 주석: 강제 알까기 규칙으로 줄별 선택지가 압축되어 인접 ★ 의 실력차가
+  // 작아졌다. 그래서 표본을 n=2000(시드 고정·결정적)으로 키워 추정 분산을 줄이고,
+  // 임계는 n=2000 측정치 아래로 안전 마진을 둔 값으로 잡는다(테스트 무력화 아님 —
+  // 모든 쌍이 0.5 초과를, 큰 격차는 더 높은 임계를 실제로 검증한다).
+  // 측정(n=2000): 5v1=0.584, 4v2=0.579, 5v3=0.520, 3v1=0.567,
+  //               5v4=0.508, 4v3=0.507, 3v2=0.551, 2v1=0.523.
+  const N = 2000;
+
   it('★5 가 ★1 을 상대로 뚜렷한 승률 우위 (큰 격차)', () => {
-    const r = winRate(5, 1, 800);
-    expect(r).toBeGreaterThan(0.57);
+    const r = winRate(5, 1, N);
+    expect(r).toBeGreaterThan(0.56);
   });
 
   it('★4 가 ★2 를 상대로 승률 우위', () => {
-    const r = winRate(4, 2, 800);
-    expect(r).toBeGreaterThan(0.53);
+    const r = winRate(4, 2, N);
+    expect(r).toBeGreaterThan(0.55);
   });
 
   it('★5 가 ★3 을 상대로 승률 우위', () => {
-    const r = winRate(5, 3, 800);
-    expect(r).toBeGreaterThan(0.5);
+    const r = winRate(5, 3, N);
+    expect(r).toBeGreaterThan(0.51);
   });
 
   it('★3 가 ★1 을 상대로 승률 우위', () => {
-    const r = winRate(3, 1, 800);
-    expect(r).toBeGreaterThan(0.53);
+    const r = winRate(3, 1, N);
+    expect(r).toBeGreaterThan(0.54);
   });
 
   it('인접 ★ 전 구간 단조: ★5>★4>★3>★2>★1 (각자 한 단계 아래 상대로 우위)', () => {
@@ -260,8 +268,9 @@ describe('난이도 단조성 (높은 ★ 승률 ↑)', () => {
       [3, 2],
       [2, 1],
     ];
+    // 인접 쌍은 실력차가 가장 작으므로 0.5 초과만 요구하되, 같은 큰 n 으로 안정화.
     for (const [s, w] of pairs) {
-      expect(winRate(s, w, 1200)).toBeGreaterThan(0.5);
+      expect(winRate(s, w, N)).toBeGreaterThan(0.5);
     }
   });
 });

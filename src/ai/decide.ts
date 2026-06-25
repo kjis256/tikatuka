@@ -20,13 +20,32 @@ import { evaluateMove, evaluateBoard, ROW_WIN_WEIGHT } from './evaluate';
 /**
  * ★별 "최선수를 따를 확률" ε. 나머지는 무작위 합법수(근시안·실수).
  * 스펙 §8: 난이도 = 의사결정 품질. ε 가 클수록 실수가 적다(운 동일).
- * 자가대국 측정상 best-vs-random ≈ 0.60 이므로, 아래 분포가 ★ 단조 승률을 만든다.
+ *
+ * 강제 알까기 규칙 하에서는 줄별 평가가 평탄해져(매칭 줄은 kkagi 강제 → 선택지 압축)
+ * ε 단독으로는 ★ 격차가 잘 안 벌어진다. 그래서 ε 는 "완만한 보조 레버"로 쓰고,
+ * 주 레버는 아래의 재굴림 사용확률(REROLL_PROB)로 둔다 (자가대국 측정: 재굴림 on/off
+ * 가 ε 격차보다 훨씬 큰 승률차를 낸다). ★1 은 거의 무작위, ★5 는 항상 최선.
  */
 const EPSILON: Record<Difficulty, number> = {
-  1: 0.15,
+  1: 0.05,
   2: 0.4,
-  3: 0.65,
-  4: 0.85,
+  3: 0.8,
+  4: 0.95,
+  5: 1.0,
+};
+
+/**
+ * ★별 "이득일 때 타짜의 손놀림(재굴림)을 실제로 쓸 확률".
+ * 강제 알까기 환경에서 재굴림은 가장 강력하고 깨끗한 난이도 레버다(자가대국 검증).
+ * 스펙 §7.1(★3+ 사용)을 지키되, ★3 은 가끔만(0.35), ★5 는 항상(1.0) 써서
+ * 재굴림 활용도 자체가 ★ 에 비례해 승률을 단조 증가시키도록 한다.
+ * (★1·★2 는 0 — 재굴림 미사용.)
+ */
+const REROLL_PROB: Record<Difficulty, number> = {
+  1: 0,
+  2: 0,
+  3: 0.35,
+  4: 0.7,
   5: 1.0,
 };
 
@@ -267,7 +286,9 @@ export function decideAction(state: GameState, rng: Rng): GameAction {
     }
 
     // 3) 타짜의 손놀림: 굴림이 나쁘고 아직 미사용 (★3+).
-    if (shouldReroll(state, difficulty)) {
+    //    "이득일 때" 판단(shouldReroll)에 더해, ★별 사용확률(REROLL_PROB)로 한 번 더
+    //    게이트한다 — 재굴림 활용도가 ★ 에 비례하도록(강제 알까기 환경의 주 난이도 레버).
+    if (shouldReroll(state, difficulty) && rng() < REROLL_PROB[difficulty]) {
       return { type: 'REROLL' };
     }
 

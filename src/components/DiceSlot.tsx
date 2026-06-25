@@ -19,15 +19,24 @@ export interface DiceSlotProps {
   placeable: boolean;
   /** 이 주사위가 알까기 대상으로 강조되어야 하는가 (logic 판정 결과). */
   kkagiTarget: boolean;
-  /** 클릭 가능 여부 (빈칸 배치 또는 알까기 대상 클릭). */
+  /** 빈칸이지만 매칭 줄이라 두면 알까기가 강제 발동되는 칸. */
+  forcedKkagi?: boolean;
+  /** 클릭 가능 여부 (빈칸 배치 또는 알까기 발동). */
   onClick?: () => void;
 }
 
-export function DiceSlot({ die, placeable, kkagiTarget, onClick }: DiceSlotProps): JSX.Element {
+export function DiceSlot({
+  die,
+  placeable,
+  kkagiTarget,
+  forcedKkagi = false,
+  onClick,
+}: DiceSlotProps): JSX.Element {
   const classes = ['slot'];
   if (die === null) {
     classes.push('slot--empty');
     if (placeable) classes.push('slot--placeable');
+    else if (forcedKkagi) classes.push('slot--kkagi-place');
   } else {
     classes.push(die.isShield ? 'slot--shield' : 'slot--wood');
     if (kkagiTarget) classes.push('slot--kkagi');
@@ -35,16 +44,23 @@ export function DiceSlot({ die, placeable, kkagiTarget, onClick }: DiceSlotProps
   const clickable = onClick !== undefined;
   if (clickable) classes.push('slot--clickable');
 
+  const ariaLabel = die
+    ? `주사위 ${die.value}${die.isShield ? ' 실드' : ''}`
+    : forcedKkagi
+      ? '알까기 발동'
+      : '빈 칸';
+
   return (
     <button
       type="button"
       className={classes.join(' ')}
       onClick={onClick}
       disabled={!clickable}
-      aria-label={die ? `주사위 ${die.value}${die.isShield ? ' 실드' : ''}` : '빈 칸'}
+      aria-label={ariaLabel}
     >
       {die !== null && <Die die={die} />}
       {die === null && placeable && <span className="slot-place-hint">＋</span>}
+      {die === null && !placeable && forcedKkagi && <span className="slot-kkagi-hint">✕</span>}
     </button>
   );
 }
